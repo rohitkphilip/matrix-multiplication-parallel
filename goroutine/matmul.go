@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Response struct {
@@ -103,6 +104,7 @@ func printPretty(mat []int, col int) {
 }
 
 func main() {
+	start := time.Now()
 	args := os.Args[1:]
 	numWorkers, err := strconv.Atoi(args[0])
 	if err != nil {
@@ -123,4 +125,5 @@ func main() {
 	go master(matLeft, matRight, size, size, numWorkers, ans)
 	fmt.Println("ans:")
 	printPretty(<-ans, size)
+	fmt.Printf("Time %v\n", time.Since(start))
 }
