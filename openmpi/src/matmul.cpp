@@ -28,12 +28,12 @@ int** getMatFromFile(string path, int size) {
 
 void printPretty(int** mat, int size){
     cout << endl;
-	for(int i = 0; i < size; i ++){
-		for(int j = 0; j < size; j ++){
-			cout << mat[i][j] << " ";
-		}
+    for(int i = 0; i < size; i ++){
+        for(int j = 0; j < size; j ++){
+            cout << mat[i][j] << " ";
+        }
         cout << endl;
-	}
+    }
     cout << endl;
 }
 
@@ -71,7 +71,7 @@ void master(int** matLeft, int** matRight, int size, int numWorkers) {
     for (int i = 1; i <= numWorkers; i++) {
         MPI_Recv(&start, 1, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
         MPI_Recv(&rows, 1, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
-		MPI_Recv(&ans[start][0], rows * size, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
+        MPI_Recv(&ans[start][0], rows * size, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
     }
 
     cout << "ans:" << endl;
@@ -104,7 +104,7 @@ void worker(int** matLeft, int** matRight, int size) {
     }
     MPI_Send(&start, 1, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
     MPI_Send(&rows, 1, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
-	MPI_Send(&ans, rows * size, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
+    MPI_Send(&ans, rows * size, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
 }
 
 int main(int argc, char *argv[]) {
@@ -113,8 +113,8 @@ int main(int argc, char *argv[]) {
     
     // Set MPI params
     MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &numWorkers);
-	MPI_Comm_rank(MPI_COMM_WORLD, &processID);
+    MPI_Comm_size(MPI_COMM_WORLD, &numWorkers);
+    MPI_Comm_rank(MPI_COMM_WORLD, &processID);
     numWorkers -= 1;
 
     // Set params from args

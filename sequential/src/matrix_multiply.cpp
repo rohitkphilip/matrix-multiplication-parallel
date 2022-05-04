@@ -21,12 +21,12 @@ int** getMatFromFile(string path, int size) {
 
 void printPretty(int** mat, int size){
     cout << endl;
-	for(int i = 0; i < size; i ++){
-		for(int j = 0; j < size; j ++){
-			cout << mat[i][j] << " ";
-		}
+    for(int i = 0; i < size; i ++){
+        for(int j = 0; j < size; j ++){
+            cout << mat[i][j] << " ";
+        }
         cout << endl;
-	}
+    }
     cout << endl;
 }
 
@@ -41,37 +41,37 @@ int main(int argc, char *argv[]) {
         int** matLeft = getMatFromFile(path + "/Left/" + to_string(size) + ".txt", size);
         int** matRight = getMatFromFile(path + "/Right/" + to_string(size) + ".txt", size);
         
-		// Start Timer
-		long long int startTime = clock();
+        // Start Timer
+        long long int startTime = clock();
 
-		// Print Matrices
-		cout << "A:" << endl;
-		printPretty(matLeft, size);
-		cout << "B:" << endl;
-		printPretty(matRight, size);
+        // Print Matrices
+        cout << "A:" << endl;
+        printPretty(matLeft, size);
+        cout << "B:" << endl;
+        printPretty(matRight, size);
 
-		int** ans = (int**) malloc (sizeof(int*) * size);
-		for (int i = 0; i < size; i++) {
-			ans[i] = (int*) malloc (sizeof(int) * size);
-		}
+        int** ans = (int**) malloc (sizeof(int*) * size);
+        for (int i = 0; i < size; i++) {
+            ans[i] = (int*) malloc (sizeof(int) * size);
+        }
 
-		// Multiply
-		for(k = 0; k < size; k ++){
-			for(i = 0; i < size; i ++){
-				ans[i][k] = 0;
-				for(j = 0; j < size; j ++){
-					ans[i][k] += matLeft[i][j] * matRight[j][k];
-				}
-			}
-		}
+        // Multiply
+        for(k = 0; k < size; k ++){
+            for(i = 0; i < size; i ++){
+                ans[i][k] = 0;
+                for(j = 0; j < size; j ++){
+                    ans[i][k] += matLeft[i][j] * matRight[j][k];
+                }
+            }
+        }
 
-		std::cout << "ans: " << std::endl;
-		printPretty(ans, size);
+        std::cout << "ans: " << std::endl;
+        printPretty(ans, size);
 
-		// End Timer
-		long long int endTime = clock();
-		double diff = (double)((double)(endTime - startTime) / 1000000);
-    	cout << fixed << "Time " << diff << "s" << endl;
+        // End Timer
+        long long int endTime = clock();
+        double diff = (double)((double)(endTime - startTime) / 1000000);
+        cout << fixed << "Time " << diff << "s" << endl;
 
     } else {
         cout << "Invalid Arguments" << endl;
