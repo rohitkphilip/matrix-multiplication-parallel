@@ -80,7 +80,7 @@ void master(int** matLeft, int** matRight, int size, int numWorkers) {
     // End Timer
     long long int endTime = clock();
     double diff = (double)((double)(endTime - startTime) / 1000000);
-    cout << "Time " << diff << "s" << endl;
+    cout << fixed << "Time " << diff << "s" << endl;
 }
 
 

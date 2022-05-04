@@ -1,76 +1,80 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
+using namespace std;
 
-
-#define MATRIX_SIZE 1000
-
-int mat1[MATRIX_SIZE][MATRIX_SIZE];
-int mat2[MATRIX_SIZE][MATRIX_SIZE];
-int result_mat[MATRIX_SIZE][MATRIX_SIZE];
-
-template<int rows, int cols> 
-void FillMatrix(int (&matrix)[rows][cols]){
-	for(int i = 0; i < cols; i ++){
-        for(int j = 0; j < rows; j ++){
-        //   matrix[i][j] = GenerateRandomNumber();
-        // matrix[i][j] = std::rand();
-        matrix[i][j] = 1;
+int** getMatFromFile(string path, int size) {
+    ifstream file(path);
+    string line;
+    int** mat = (int**) malloc(sizeof(int*) * size);
+    for (int i = 0; i < size; i++) {
+        mat[i] = (int*) malloc(sizeof(int) * size);
+        getline(file, line);
+        istringstream iss(line);
+        for (int j = 0; j < size; j++) {
+            iss >> mat[i][j];
         }
     }
+    return mat;
 }
 
-template<int rows, int cols> 
-void FillMatrix2(int (&matrix)[rows][cols]){
-	for(int i = 0; i < cols; i ++){
-        for(int j = 0; j < rows; j ++){
-        //   matrix[i][j] = GenerateRandomNumber();
-        matrix[i][j] = std::rand();
-        }
-    }
-}
-
-
-template<int rows, int cols> 
-void PrintMatrix(int (&matrix)[rows][cols]){
-    std::cout << std::endl;
-	for(int i = 0; i < rows; i ++){
-		for(int j = 0; j < cols; j ++){
-            std::cout << matrix[i][j] << " ";
+void printPretty(int** mat, int size){
+    cout << endl;
+	for(int i = 0; i < size; i ++){
+		for(int j = 0; j < size; j ++){
+			cout << mat[i][j] << " ";
 		}
-        std::cout << std::endl;
+        cout << endl;
 	}
+    cout << endl;
 }
 
-int main()
-{
+int main(int argc, char *argv[]) {
     int i, j, k;
 
-    std::cout << std::endl << "Generating matrix A with size " << MATRIX_SIZE << "x" << MATRIX_SIZE  << std::endl;
-	FillMatrix(mat1);
-	PrintMatrix(mat1);
+    // Set params from args
+    istringstream iss(argv[1]);
+    int size;
+    if (iss >> size) {
+        string path = argv[2];
+        int** matLeft = getMatFromFile(path + "/Left/" + to_string(size) + ".txt", size);
+        int** matRight = getMatFromFile(path + "/Right/" + to_string(size) + ".txt", size);
+        
+		// Start Timer
+		long long int startTime = clock();
 
-    std::cout << std::endl << "Generating matrix B with size " << MATRIX_SIZE << "x" << MATRIX_SIZE << std::endl;
-	FillMatrix(mat2);
-	PrintMatrix(mat2);
+		// Print Matrices
+		cout << "A:" << endl;
+		printPretty(matLeft, size);
+		cout << "B:" << endl;
+		printPretty(matRight, size);
 
-    std::cout << std::endl << "Starting multiplication ... " << std::endl;
-	clock_t time = clock();
+		int** ans = (int**) malloc (sizeof(int*) * size);
+		for (int i = 0; i < size; i++) {
+			ans[i] = (int*) malloc (sizeof(int) * size);
+		}
 
-	for(k = 0; k < MATRIX_SIZE; k ++){
-		for(i = 0; i < MATRIX_SIZE; i ++){
-			result_mat[i][k] = 0;
-			for(j = 0; j < MATRIX_SIZE; j ++){
-				result_mat[i][k] += mat1[i][j] * mat2[j][k];
+		// Multiply
+		for(k = 0; k < size; k ++){
+			for(i = 0; i < size; i ++){
+				ans[i][k] = 0;
+				for(j = 0; j < size; j ++){
+					ans[i][k] += matLeft[i][j] * matRight[j][k];
+				}
 			}
 		}
-	}
-    std::cout << std::endl << "Multiplication Result: " << std::endl;
-	PrintMatrix(result_mat);
-	time = clock() - time;
-	double diff = (double)(time / (1.0 * 1000000));
 
-	
-    std::cout << std::endl << MATRIX_SIZE << "x" << MATRIX_SIZE << " - " << diff << " seconds" << std::endl;
+		std::cout << "ans: " << std::endl;
+		printPretty(ans, size);
 
+		// End Timer
+		long long int endTime = clock();
+		double diff = (double)((double)(endTime - startTime) / 1000000);
+    	cout << fixed << "Time " << diff << "s" << endl;
+
+    } else {
+        cout << "Invalid Arguments" << endl;
+    }
     return 0;
 }
