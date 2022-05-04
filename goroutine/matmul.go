@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -11,46 +10,56 @@ import (
 
 type Response struct {
 	start  int
+	rows   int
 	values []int
 }
 
-func master(matLeft []int, matRight []int, rows int, cols int, numWorkers int, ans chan []int) {
-	rowsPerRoutine := rows / numWorkers
-	excessRows := rows % numWorkers
+func master(matLeft []int, matRight []int, size int, numWorkers int, ans chan []int) {
+
+	// Print Matrices
+	fmt.Println("A:")
+	printPretty(matLeft, size)
+	fmt.Println("B:")
+	printPretty(matRight, size)
+
+	rowsPerRoutine := size / numWorkers
+	excessRows := size % numWorkers
 	start := 0
 	response := make(chan Response)
+
+	// Split Work
 	for i := 1; i <= numWorkers; i++ {
 		end := start + rowsPerRoutine
 		if i <= excessRows {
 			end += 1
 		}
-		go work(
+
+		go worker(
 			start,
 			end-start,
-			cols,
-			matLeft[cols*start:cols*end],
+			size,
+			matLeft[size*start:size*end],
 			matRight,
 			response,
 		)
+
 		start = end
 	}
-	responses := make([]Response, numWorkers)
+
+	matAns := make([]int, size*size)
+
+	// Gather Work
 	for i := 0; i < numWorkers; i++ {
-		responses[i] = <-response
-		// fmt.Println(responses[i])
+		res := <-response
+		startIndex := res.start * size
+		endIndex := startIndex + (res.rows * size)
+		copy(matAns[startIndex:endIndex], res.values)
 	}
-	sort.Slice(responses, func(i, j int) bool {
-		return responses[i].start < responses[j].start
-	})
-	slices := []int{}
-	for _, response := range responses {
-		slices = append(slices, response.values...)
-	}
-	ans <- slices
+
+	ans <- matAns
 }
 
-func work(start int, numRows int, numCols int, rows []int, cols []int, response chan Response) {
-	// fmt.Println("work started!")
+func worker(start int, numRows int, numCols int, rows []int, cols []int, response chan Response) {
 	ans := make([]int, numCols)
 
 	for k := 0; k < numCols; k++ {
@@ -63,9 +72,9 @@ func work(start int, numRows int, numCols int, rows []int, cols []int, response 
 	}
 	response <- Response{
 		start,
+		numRows,
 		ans,
 	}
-	// fmt.Println("work done!")
 }
 
 func getMatFromFile(path string, size int) []int {
@@ -81,8 +90,6 @@ func getMatFromFile(path string, size int) []int {
 		for j, numStr := range numStrs {
 			num, err2 := strconv.Atoi(numStr)
 			if err2 == nil {
-				// 	panic(err2)
-				// }
 				mat[(i*size)+j] = num
 			}
 		}
@@ -104,26 +111,30 @@ func printPretty(mat []int, col int) {
 }
 
 func main() {
-	start := time.Now()
 	args := os.Args[1:]
 	numWorkers, err := strconv.Atoi(args[0])
 	if err != nil {
 		panic(err)
 	}
+	numWorkers -= 1
 	size, err2 := strconv.Atoi(args[1])
 	if err2 != nil {
 		panic(err2)
 	}
 	dir := args[2]
+
 	matLeft := getMatFromFile(dir+"/Left/", size)
 	matRight := getMatFromFile(dir+"/Right/", size)
-	fmt.Println("A:")
-	printPretty(matLeft, size)
-	fmt.Println("B:")
-	printPretty(matRight, size)
+
+	// Start Timer
+	startTime := time.Now()
+
 	ans := make(chan []int)
-	go master(matLeft, matRight, size, size, numWorkers, ans)
+	go master(matLeft, matRight, size, numWorkers, ans)
+
 	fmt.Println("ans:")
 	printPretty(<-ans, size)
-	fmt.Printf("Time %v\n", time.Since(start))
+
+	// End Timer
+	fmt.Printf("Time %vs\n", time.Since(startTime).Seconds())
 }

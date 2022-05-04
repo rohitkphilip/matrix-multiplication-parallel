@@ -1,143 +1,137 @@
-#include <stdio.h>
 #include <mpi.h>
-#include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <ctime>
 
-#define GRN   "\x1B[32m"
-#define RESET "\x1B[0m"
-#define CYN   "\x1B[36m"
-
-#define MASTER_RANK 0
+using namespace std;
 
 #define MASTER_TAG 1
 #define WORKER_TAG 2
 
-#define M_SIZE 1000
-#define MICRO 1000000
-
-#define NOT_ENOUGH_PROCESSES_NUM_ERROR 1
-
 MPI_Status status;
 
-int a[M_SIZE][M_SIZE];
-int b[M_SIZE][M_SIZE];
-int c[M_SIZE][M_SIZE];
-
-int GenerateRandomNumber(){
-	return std::rand() % 9 + 1;
-}
-
-template<int rows, int cols> 
-void FillMatrix(int (&matrix)[rows][cols]){
-	for(int i = 0; i < cols; i ++){
-        for(int j = 0; j < rows; j ++){
-          matrix[i][j] = GenerateRandomNumber();
+int** getMatFromFile(string path, int size) {
+    ifstream file(path);
+    string line;
+    int** mat = (int**) malloc(sizeof(int*) * size);
+    for (int i = 0; i < size; i++) {
+        mat[i] = (int*) malloc(sizeof(int) * size);
+        getline(file, line);
+        istringstream iss(line);
+        for (int j = 0; j < size; j++) {
+            iss >> mat[i][j];
         }
     }
+    return mat;
 }
 
-template<int rows, int cols> 
-void PrintMatrix(int (&matrix)[rows][cols]){
-	printf("\n");
-	for(int i = 0; i < rows; i ++){
-		for(int j = 0; j < cols; j ++){
-			printf("%d ", matrix[i][j]);
+void printPretty(int** mat, int size){
+    cout << endl;
+	for(int i = 0; i < size; i ++){
+		for(int j = 0; j < size; j ++){
+			cout << mat[i][j] << " ";
 		}
-		printf("\n");
+        cout << endl;
 	}
+    cout << endl;
+}
+
+void master(int** matLeft, int** matRight, int size, int numWorkers) {
+    // Start Timer
+    long long int startTime = clock();
+
+    // Print Matrices
+    cout << "A:" << endl;
+    printPretty(matLeft, size);
+    cout << "B:" << endl;
+    printPretty(matRight, size);
+
+    int rowsPerProcess = size / numWorkers;
+    int excessRows = size % numWorkers;
+    int start = 0;
+    int rows;
+
+    // Split Work
+    for (int i = 1; i <= numWorkers; i++) {
+        rows = rowsPerProcess;
+        if (i < excessRows) rows += 1;
+        MPI_Send(&start, 1, MPI_INT, i, MASTER_TAG, MPI_COMM_WORLD);
+        MPI_Send(&rows, 1, MPI_INT, i, MASTER_TAG, MPI_COMM_WORLD);
+
+        start = start + rows;
+    }
+
+    int** ans = (int**) malloc (sizeof(int*) * size);
+    for (int i = 0; i < size; i++) {
+        ans[i] = (int*) malloc (sizeof(int) * size);
+    }
+
+    // Gather Work
+    for (int i = 1; i <= numWorkers; i++) {
+        MPI_Recv(&start, 1, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
+        MPI_Recv(&rows, 1, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
+		MPI_Recv(&ans[start][0], rows * size, MPI_INT, i, WORKER_TAG, MPI_COMM_WORLD, &status);
+    }
+
+    cout << "ans:" << endl;
+    printPretty(ans, size);
+
+    // End Timer
+    long long int endTime = clock();
+    double diff = (double)((double)(endTime - startTime) / 1000000);
+    cout << "Time " << diff << "s" << endl;
 }
 
 
-int main(int argc, char *argv[])
-{
-	int communicator_size;
-	int process_rank;
-	int process_id;
-	int offset;
-	int rows_num;
-	int workers_num;
-	int remainder;
-	int whole_part;
-	int message_tag;
-	int i;
-	int j;
-	int k;
+void worker(int** matLeft, int** matRight, int size) {
+    int start;
+    int rows;
 
+    // Receive Work
+    MPI_Recv(&start, 1, MPI_INT, 0, MASTER_TAG, MPI_COMM_WORLD, &status);
+    MPI_Recv(&rows, 1, MPI_INT, 0, MASTER_TAG, MPI_COMM_WORLD, &status);
 
-	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &communicator_size);
-	MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
+    int ans[rows][size];
 
-	if(communicator_size < 2){
-		MPI_Abort(MPI_COMM_WORLD, NOT_ENOUGH_PROCESSES_NUM_ERROR);
-	}
+    for(int k = 0; k < size; k++){
+        for(int i = 0; i < rows; i++){
+            ans[i][k] = 0;
+            for(int j = 0; j < size; j++){
+                ans[i][k] += matLeft[start + i][j] * matRight[j][k];
+            }
+        }
+    }
+    MPI_Send(&start, 1, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
+    MPI_Send(&rows, 1, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
+	MPI_Send(&ans, rows * size, MPI_INT, 0, WORKER_TAG, MPI_COMM_WORLD);
+}
 
-	if(process_rank == MASTER_RANK){
-		printf("%sGenerating matrixes%s\n", CYN, RESET);
-		
-		printf("\n%sGenerating matrix %sA%s with size %s%dx%d",CYN, GRN, CYN, RESET, M_SIZE, M_SIZE);
-		FillMatrix(a);
-		PrintMatrix(a);
+int main(int argc, char *argv[]) {
+    int numWorkers;
+    int processID;
+    
+    // Set MPI params
+    MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &numWorkers);
+	MPI_Comm_rank(MPI_COMM_WORLD, &processID);
+    numWorkers -= 1;
 
-		printf("\n%sGenerating matrix %sB%s with size %s%dx%d",CYN, GRN, CYN, RESET, M_SIZE, M_SIZE);
-		FillMatrix(b);
-		PrintMatrix(b);
-
-		printf("\nStarting multiplication ... \n");
-		long long int start = clock();
-
-		workers_num = communicator_size - 1;
-		whole_part = M_SIZE / workers_num;
-		remainder = M_SIZE % workers_num;
-		offset = 0;
-
-		message_tag = MASTER_TAG;
-		for(process_id = 1; process_id <= workers_num; process_id ++ ){
-			rows_num = process_id <= remainder ? whole_part + 1 : whole_part;
-			MPI_Send(&offset, 1, MPI_INT, process_id, message_tag, MPI_COMM_WORLD);
-			MPI_Send(&rows_num, 1, MPI_INT, process_id, message_tag, MPI_COMM_WORLD);
-			MPI_Send(&a[offset][0], rows_num * M_SIZE, MPI_INT, process_id, message_tag, MPI_COMM_WORLD);
-			MPI_Send(&b, M_SIZE * M_SIZE, MPI_INT, process_id, message_tag, MPI_COMM_WORLD);
-
-			offset += rows_num;
-		}
-
-		message_tag = WORKER_TAG;
-		for(process_id = 1; process_id <= workers_num; process_id ++){
-			MPI_Recv(&offset, 1, MPI_INT, process_id, message_tag, MPI_COMM_WORLD, &status);
-			MPI_Recv(&rows_num, 1, MPI_INT, process_id, message_tag, MPI_COMM_WORLD, &status);
-			MPI_Recv(&c[offset][0], rows_num * M_SIZE, MPI_INT, process_id, message_tag, MPI_COMM_WORLD, &status);
-		}
-		printf("\n%sResult %sA*B%s", CYN, GRN, RESET);
-		PrintMatrix(c);
-		long long int end = clock();
-		double diff = (double)((end - start) / (1.0 * MICRO));
-
-		printf("\n%dx%d - %f seconds\n", M_SIZE, M_SIZE, diff);
-	} 
-	
-	if(process_rank != MASTER_RANK){
-		message_tag = MASTER_TAG;
-		MPI_Recv(&offset, 1, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD, &status);
-		MPI_Recv(&rows_num, 1, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD, &status);
-		MPI_Recv(&a, rows_num * M_SIZE, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD, &status);
-		MPI_Recv(&b, M_SIZE * M_SIZE, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD, &status);
-
-		for(k = 0; k < M_SIZE; k ++){
-			for(i = 0; i < rows_num; i ++){
-				c[i][k] = 0;
-				for(j = 0; j < M_SIZE; j ++){
-					c[i][k] += a[i][j] * b[j][k];
-				}
-			}
-		}
-
-		message_tag = WORKER_TAG;
-		MPI_Send(&offset, 1, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD);
-		MPI_Send(&rows_num, 1, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD);
-		MPI_Send(&c, rows_num * M_SIZE, MPI_INT, MASTER_RANK, message_tag, MPI_COMM_WORLD);
-	}
-
-	MPI_Finalize();
-	return 0;
+    // Set params from args
+    istringstream iss(argv[1]);
+    int size;
+    if (iss >> size) {
+        string path = argv[2];
+        int** matLeft = getMatFromFile(path + "/Left/" + to_string(size) + ".txt", size);
+        int** matRight = getMatFromFile(path + "/Right/" + to_string(size) + ".txt", size);
+        
+        if (processID == 0) {
+            master(matLeft, matRight, size, numWorkers);
+        } else {
+            worker(matLeft, matRight, size);
+        }
+    } else {
+        cout << "Invalid Arguments" << endl;
+    }
+    return 0;
 }
